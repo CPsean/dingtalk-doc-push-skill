@@ -1,38 +1,51 @@
 ---
-name: dingtalk-doc-push
-description: 当用户想要将本地文档推送到钉钉文档、更新钉钉云端文档内容、查询或搜索钉钉文档列表时使用本 Skill。适用于：上传 markdown 到钉钉、同步本地文件到钉钉知识库、列出知识库文档、在钉钉中创建文档或文件夹、初始化钉钉文档 MCP 配置。当用户想推送到飞书、语雀、Notion 等其他平台、只操作本地文件、管理钉钉 IM 消息或群组时，不要使用本 Skill。
+name: dingtalk-docs-skill
+description: 当用户想要操作钉钉文档时使用本 Skill。支持：推送本地 markdown 到钉钉知识库、拉取云端文档到本地、覆盖/追加更新文档内容、块级精确编辑、搜索与列出知识库文档、下载文件与附件、导出文档为 PDF/Word、管理节点权限、创建/重命名/移动/复制/删除文档与文件夹、初始化钉钉文档 MCP 配置。当用户想操作飞书、语雀、Notion 等其他平台、只修改本地文件、管理钉钉 IM 消息或群组时，不要使用本 Skill。
+license: MIT
+compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Compatible with any MCP-capable agent (Claude Code, Cursor, VS Code, Roo Code, Gemini CLI, Codex, etc.). Auto-detects Claude Code; falls back to writing config files or manual setup for other agents.
 ---
 
-# 钉钉文档推送
+# 钉钉文档
 
-通过钉钉文档官方 MCP Server 操作云端文档。支持创建、更新、查询、搜索文档及文件夹管理。
+通过钉钉文档官方 MCP Server 全面操作云端文档。
 
 ## 语言规则
 
 **始终使用用户输入的语言进行回复。** 如果用户用英文提问，则全程用英文回复；如果用户用中文，则全程用中文回复。无法判断时默认使用中文。
 
-## 这个 Skill 负责什么
+## 能力范围
 
-- 将本地 markdown 内容推送为钉钉文档（adoc 类型）
-- 更新已有钉钉文档的内容
-- 列出知识库或文件夹下的文档节点
-- 搜索钉钉文档
-- 创建文件夹、重命名/移动/删除文档节点
+**读**
+- 拉取云端文档正文为 markdown（保存到本地）
+- 列出知识库/文件夹下的文档节点
+- 按关键词搜索文档
+- 获取文档元信息（标题、类型、创建时间等）
+- 下载钉盘文件或文档内嵌附件
 
-不负责：
-- 推送到飞书、语雀、Notion 等其他平台
+**写**
+- 将本地 markdown 推送为钉钉文档（adoc 类型）
+- 覆盖或追加内容到已有文档
+- 按块精确编辑（插入/更新/删除段落、标题、表格等）
+- 上传本地文件（PDF、图片、Word 等）到知识库
+
+**管理**
+- 创建文件夹
+- 重命名/移动/复制/删除文档和文件夹
+- 导出文档为 PDF 或 Word 格式
+- 查看/添加/修改知识库节点的成员权限
+
+**不负责：**
+- 飞书、语雀、Notion 等其他平台
 - 只修改本地文件（无云端操作）
-- 钉钉 IM 消息、钉钉企业成员管理
+- 钉钉 IM 消息、企业成员管理
 
 ## 前置条件
 
-钉钉文档 MCP Server 必须已配置到 Claude Code 的 MCP 设置中，MCP 名称为 `dingtalk-doc`。
+钉钉文档 MCP Server 必须已配置到当前 Agent 的 MCP 设置中，服务名称为 `dingtalk-doc`。
 
 如果 MCP 工具不可用，先走**初始化流程**，再执行任何文档操作。
 
 ## 初始化流程（首次使用或 MCP 不可用时）
-
-> **注意：** 以下步骤 4 的 MCP 注册命令仅适用于 Claude Code 客户端。其他客户端（如 Claude Desktop、Cursor、第三方集成等）的 MCP 配置方式不同，请参考对应客户端的文档或询问用户如何在其客户端中添加 StreamableHttp 类型的 MCP 服务。
 
 1. 告知用户访问帮助手册页面并完成开通：
    > 请打开以下链接，使用钉钉账号登录后，点击页面上的【开通服务】按钮：
@@ -40,58 +53,96 @@ description: 当用户想要将本地文档推送到钉钉文档、更新钉钉�
 
 2. 开通后复制页面右侧 **StreamableHttp URL**（不是 JSON Config）
 
-3. 请用户将 URL 粘贴给 Claude
+3. 请用户将 URL 粘贴给你
 
-4. 收到 URL 后，根据当前客户端类型注册 MCP 服务：
-   - **Claude Code**：使用 Bash 工具运行以下命令（`dingtalk-doc` 为 ASCII 名称，MCP 名称不支持中文字符）：
-     ```
-     claude mcp add --transport http --scope user dingtalk-doc "<用户提供的 URL>"
-     ```
-   - **其他客户端**：询问用户如何在其客户端中添加 MCP 服务，提供以下信息供用户配置：
-     - 传输类型：StreamableHttp（或 HTTP）
-     - 服务名称：`dingtalk-doc`（或用户自选）
-     - URL：用户提供的 StreamableHttp URL
+4. 收到 URL 后，按以下顺序尝试注册 MCP 服务（`dingtalk-doc` 为服务名，必须为 ASCII）：
+
+   **方案 A — Claude Code**（优先尝试，运行命令看是否成功）：
+   ```bash
+   claude mcp add --transport http --scope user dingtalk-doc "<用户提供的 URL>"
+   ```
+   成功则跳到步骤 5。
+
+   **方案 B — 写入配置文件**（通用方案，大多数 Agent 均可用）：
+
+   检测当前环境存在哪些配置文件，找到第一个匹配项写入：
+
+   | Agent | 配置文件（全局） | 配置文件（项目级） | `mcpServers` 键名 |
+   |-------|---------------|----------------|-----------------|
+   | Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | `mcpServers` |
+   | VS Code Copilot | `~/Library/Application Support/Code/User/mcp.json`（Mac）<br>`%APPDATA%\Code\User\mcp.json`（Win） | `.vscode/mcp.json` | `servers` |
+   | Roo Code | — | `.roo/mcp.json` | `mcpServers` |
+   | Gemini CLI | `~/.gemini/settings.json` | — | `mcpServers` |
+   | OpenAI Codex | `~/.codex/config.json` | — | `mcpServers` |
+
+   向目标文件追加（若文件已有 `mcpServers`/`servers`，只添加新条目，不覆盖原有内容）：
+
+   ```json
+   {
+     "mcpServers": {
+       "dingtalk-doc": {
+         "type": "http",
+         "url": "<用户提供的 URL>"
+       }
+     }
+   }
+   ```
+   > VS Code Copilot 的 `.vscode/mcp.json` 使用 `"servers"` 而非 `"mcpServers"`，写入时注意区分。
+
+   成功写入则跳到步骤 5。
+
+   **方案 C — 手动兜底**（方案 A/B 均不适用时）：
+
+   向用户展示以下信息，请其参照所用 Agent 的文档手动添加 MCP 服务，完成后回来继续：
+   ```
+   传输类型：StreamableHttp（HTTP）
+   服务名称：dingtalk-doc
+   URL：<用户提供的 URL>
+   ```
+   用户手动配置完成后，本 Skill 只需确认 MCP 工具可用即可继续。
+
    > URL 中含有个人 API Key，写入配置后不要在回复中重复显示完整 URL。
 
 5. 询问用户的默认知识库地址：
    > 请在浏览器中打开你常用的钉钉知识库，把地址栏的 URL 粘贴给我（格式类似 `https://alidocs.dingtalk.com/i/spaces/xxxxx/overview`）。
    > 如果暂时不设默认知识库，可以跳过，后续每次操作时再指定。
 
-6. 收到知识库 URL 后，调用 `update-config` skill，追加写入 settings.json：
-   ```json
-   "env": {
-     "DINGTALK_DEFAULT_WORKSPACE_URL": "<用户提供的知识库 URL>"
-   }
+6. 收到知识库 URL 后，写入 `references/dingtalk.config`：
    ```
+   DINGTALK_DEFAULT_WORKSPACE_URL=<用户提供的知识库 URL>
+   ```
+   此文件已被 `.gitignore` 排除，不会进入版本控制。无需重启，下次操作时直接读取生效。
 
-7. 配置写入后，提示用户重启 Claude Code 以使 MCP 生效：
-   > 请完全退出 Claude Code（关闭应用窗口，或在终端中按 Ctrl+C 结束进程），然后重新启动。仅关闭当前对话或刷新页面**不会**重新加载 MCP 配置。
+7. MCP 配置写入后，提示用户重启 Agent 客户端以使 MCP 生效，重启后回来继续操作即可。
 
 ### 使用默认知识库
 
-- 当用户说"列出我的知识库文档"、"推送到知识库"等未指明位置的操作时，优先使用 `$DINGTALK_DEFAULT_WORKSPACE_URL`
-- 先调用 `get_document_info` 传入该 URL 解析出 nodeId，再用 nodeId 调用 `list_nodes` 或作为 `parentNodeId`
-- 如果环境变量未设置，直接询问用户要操作哪个知识库
+- 当用户说"列出我的知识库文档"、"推送到知识库"等未指明位置的操作时，优先使用默认知识库 URL
+- **读取顺序**：① 读取 `references/dingtalk.config` 中的 `DINGTALK_DEFAULT_WORKSPACE_URL`；② 若文件不存在或值为空，检查环境变量 `$DINGTALK_DEFAULT_WORKSPACE_URL`（兼容已有 Claude Code 配置）；③ 两者均无则询问用户
+- 获得 URL 后，调用 `get_document_info` 传入该 URL 解析出 nodeId，再用 nodeId 调用 `list_nodes` 或作为 `parentNodeId`
 
 ### 更改默认知识库
 
 当用户说"更换默认知识库"、"修改知识库地址"等时：
 
 1. 请用户在浏览器打开目标钉钉知识库，复制地址栏 URL
-2. 收到新 URL 后，调用 `update-config` skill 更新 settings.json 中的 `env.DINGTALK_DEFAULT_WORKSPACE_URL`
-3. 提示用户重启 Claude Code 使新配置生效
+2. 收到新 URL 后，覆盖写入 `references/dingtalk.config`：
+   ```
+   DINGTALK_DEFAULT_WORKSPACE_URL=<新的知识库 URL>
+   ```
+3. 无需重启，下次操作时读取新值即生效
 
 ### 安全规则
 
-- URL 中含有个人 API Key，**不得出现在任何版本控制文件中**
-- 收到 URL 后直接通过 `claude mcp add` 命令注册，不要在回复中重复显示完整 URL
+- MCP 服务 URL 含有个人 API Key，**不得出现在任何版本控制文件中**；写入配置后不要在回复中重复显示完整 URL
+- `references/dingtalk.config` 保存知识库 URL，已被 `.gitignore` 排除，不会提交到版本控制
 - 如果用户将 URL 粘贴到聊天中，立即写入配置后不再引用
 
 ## 默认路径
 
 1. 确认 MCP 工具可用（若不可用，进入初始化流程）
 2. 理解用户意图，映射到对应 MCP 工具（见工具映射表）
-3. 如需要 dentryUuid/nodeId 但用户未提供：优先使用 `$DINGTALK_DEFAULT_WORKSPACE_URL` 解析出默认知识库 nodeId；否则调用 `search_documents` 或 `list_nodes` 定位目标，让用户确认后再操作
+3. 如需要 dentryUuid/nodeId 但用户未提供：优先读取 `references/dingtalk.config`（或环境变量 `$DINGTALK_DEFAULT_WORKSPACE_URL`）获取默认知识库 URL，调用 `get_document_info` 解析出 nodeId；否则调用 `search_documents` 或 `list_nodes` 定位目标，让用户确认后再操作
 4. **执行前确认**（只读操作除外，见下方说明）：向用户展示操作摘要，收到明确同意后再调用 MCP 工具
 5. 执行操作
 6. 报告结果：操作类型、文档标题、文档链接（如有）
@@ -99,10 +150,10 @@ description: 当用户想要将本地文档推送到钉钉文档、更新钉钉�
 ### 执行前确认规则
 
 **需要确认的操作**（所有会写入或修改云端数据的操作）：
-`create_document`、`update_document`、`create_folder`、`create_file`、`delete_document`、`rename_document`、`move_document`、`copy_document`、`insert_document_block`、`update_document_block`、`delete_document_block`、文件上传（`get_file_upload_info` + `commit_uploaded_file`）
+`create_document`、`update_document`、`create_folder`、`create_file`、`delete_document`、`rename_document`、`move_document`、`copy_document`、`insert_document_block`、`update_document_block`、`delete_document_block`、文件上传（`get_file_upload_info` + `commit_uploaded_file`）、`submit_export_job`、`add_permission`、`update_permission`
 
 **无需确认的操作**（只读）：
-`search_documents`、`list_nodes`、`get_document_info`、`get_document_content`、`list_document_blocks`、`list_permission`
+`search_documents`、`list_nodes`、`get_document_info`、`get_document_content`、`list_document_blocks`、`list_permission`、`query_export_job`、`download_file`、`download_doc_attachment`
 
 **确认摘要格式**（根据操作类型调整）：
 
@@ -126,17 +177,22 @@ description: 当用户想要将本地文档推送到钉钉文档、更新钉钉�
 | 用户意图 | MCP 工具 |
 |---------|---------|
 | 推送/创建文档（含 markdown 内容） | `create_document` |
+| 拉取云端文档内容到本地 | `get_document_content` |
 | 覆盖或追加文档内容 | `update_document` |
+| 精确块级编辑（段落/标题/表格等） | `list_document_blocks` → `insert/update/delete_document_block` |
 | 列出知识库/文件夹下的文档 | `list_nodes` |
 | 按关键词搜索文档 | `search_documents` |
 | 获取文档元信息（标题、类型等） | `get_document_info` |
-| 读取文档正文 | `get_document_content` |
+| 下载钉盘文件 | `download_file` |
+| 下载文档内嵌附件 | `download_doc_attachment` |
+| 导出文档为 PDF/Word | `submit_export_job` → `query_export_job`（轮询至完成）|
 | 创建文件夹 | `create_folder` |
 | 删除文档节点 | `delete_document` |
 | 重命名节点 | `rename_document` |
 | 移动节点到其他文件夹 | `move_document` |
 | 复制节点到其他文件夹 | `copy_document` |
-| 精确块级编辑（段落/标题/表格等） | `list_document_blocks` → `insert/update/delete_document_block` |
+| 查看节点成员权限 | `list_permission` |
+| 添加/修改节点成员权限 | `add_permission` / `update_permission` |
 
 ## 失败处理
 
@@ -156,6 +212,7 @@ description: 当用户想要将本地文档推送到钉钉文档、更新钉钉�
 - `update_document` 和 `create_document` 仅支持 **adoc（文字类型）** 文档，不支持表格、演示、脑图等
 - `delete_document` 是移入回收站，不是永久删除，30 天内可从回收站恢复
 - `list_nodes` 只返回直接子节点，不递归。需要深层列表时需要多次调用
+- **导出为异步操作**：`submit_export_job` 返回 jobId 后需轮询 `query_export_job` 直到状态完成，再将下载链接告知用户；轮询间隔建议 1-2 秒
 - **Mermaid 文本绘图**：通过 `create_document` 推送的 ` ```mermaid ` 代码块会被解析为普通代码块，而非钉钉原生文本绘图块。钉钉的文本绘图是私有块类型，API 层未暴露，无法通过 MCP 创建或转换。推送前告知用户此限制，建议推送后在钉钉编辑器中手动将代码块转换为文本绘图
 - 操作完成后，从返回值中提取文档链接告知用户，方便直接点击查看
 
@@ -170,7 +227,7 @@ description: 当用户想要将本地文档推送到钉钉文档、更新钉钉�
 
 ### 处理规则
 
-1. **优先使用本地文件路径**：当用户要推送含非 ASCII 内容（中文、日文等）的文件时，请用户提供本地磁盘路径，通过 Read 工具直接读取文件，避免编码问题
+1. **优先使用本地文件路径**：当用户要推送含非 ASCII 内容（中文、日文等）的文件时，请用户提供本地磁盘路径，直接读取文件内容，避免编码问题
 2. **对话上传的文件先检查编码**：如果用户直接在对话中上传了文件，先检查内容是否出现乱码。如果存在乱码，立即告知用户并请其提供本地文件路径
 3. **纯 ASCII 内容可直接处理**：如果上传的文件内容全是 ASCII（英文、代码等），可以直接处理，在同一轮回复中完成：读取内容 -> 确认摘要 -> （用户确认后）调用 `create_document`
 4. **文档命名**：默认使用上传文件名（去掉扩展名）作为钉钉文档标题。如果用户要求修改名字，按用户指定的名字创建

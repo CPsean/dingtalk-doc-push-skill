@@ -1,6 +1,6 @@
 # 钉钉文档 MCP 工具速查
 
-MCP 名称：`dingtalk-doc`（通过 `claude mcp add --scope user` 注册）
+MCP 名称：`dingtalk-doc`（注册方式见 SKILL.md 初始化流程）
 
 ---
 
@@ -141,6 +141,25 @@ MCP 名称：`dingtalk-doc`（通过 `claude mcp add --scope user` 注册）
 
 ### list_permission
 查询节点当前的成员权限列表。
+
+---
+
+## 导出
+
+将文档异步导出为 PDF 或 Word 等格式，分两步：
+
+### submit_export_job
+提交导出任务，返回 `jobId`。
+
+- 关键参数：`dentryUuid`、`exportType`（`pdf` / `docx` 等）
+- 返回：`jobId`，供轮询使用
+
+### query_export_job
+查询导出任务状态，直到完成为止。
+
+- 关键参数：`jobId`
+- 返回：任务状态；完成时包含下载链接
+- 注意：需轮询直至状态为成功，建议间隔 1-2 秒
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "skill_name": "dingtalk-doc-push",
+  "skill_name": "dingtalk-docs-skill",
   "evals": [
     {
       "query": "帮我把这个 markdown 文件推送到钉钉文档",

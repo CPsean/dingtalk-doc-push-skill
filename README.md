@@ -1,4 +1,4 @@
-# dingtalk-doc-push
+# dingtalk-docs-skill
 
 [English](#english) | [中文](#中文)
 
@@ -6,16 +6,15 @@
 
 ## 中文
 
-**dingtalk-doc-push** 是一个 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 技能（Skill），通过钉钉文档官方 MCP Server 推送、同步和管理钉钉云端文档。
+**dingtalk-docs-skill** 是一个兼容多平台的 Agent Skill，通过钉钉文档官方 MCP Server 全面操作钉钉云端文档，支持读取、推送、同步、导出、权限管理等。
 
 ### 功能
 
-- **推送**：将本地 Markdown 文件创建为钉钉文档
-- **更新**：覆盖或追加内容到已有文档
-- **拉取**：将云端文档内容下载为本地 Markdown 文件
-- **列表**：浏览知识库或文件夹下的文档
-- **搜索**：按关键词搜索文档
-- **管理**：创建文件夹、重命名、移动、复制、删除文档
+| 类别 | 能力 |
+|------|------|
+| **读** | 拉取云端文档正文为 markdown、列出知识库/文件夹文档、按关键词搜索、获取文档元信息、下载钉盘文件与文档附件 |
+| **写** | 推送本地 markdown 到钉钉、覆盖/追加更新文档内容、块级精确编辑（段落/标题/表格等）、上传本地文件（PDF/图片/Word 等） |
+| **管理** | 创建文件夹、重命名/移动/复制/删除文档和文件夹、导出文档为 PDF/Word、管理节点成员权限 |
 
 所有操作通过[钉钉官方 MCP Server](https://aihub.dingtalk.com/#/detail?mcpId=9629&detailType=marketMcpDetail) 完成，无需本地脚本，API Key 不会写入代码。
 
@@ -23,7 +22,28 @@
 
 **1. 安装 Skill**
 
-将 `.claude/skills/dingtalk-doc-push` 目录复制到你的项目的 `.claude/skills/` 下（或用户级 `~/.claude/skills/`）。
+**用户级安装**（推荐，所有项目均可使用）：
+
+macOS / Linux：
+```bash
+git clone https://github.com/CPsean/dingtalk-docs-skill \
+  ~/.claude/skills/dingtalk-docs-skill
+```
+
+Windows（PowerShell）：
+```powershell
+git clone https://github.com/CPsean/dingtalk-docs-skill `
+  "$env:USERPROFILE\.claude\skills\dingtalk-doc"
+```
+
+**项目级安装**（仅当前项目可用）：
+
+```bash
+git clone https://github.com/CPsean/dingtalk-docs-skill \
+  .claude/skills/dingtalk-docs-skill
+```
+
+安装后重启 Claude Code 使 Skill 生效。
 
 **2. 开通钉钉文档 MCP 服务**
 
@@ -88,7 +108,7 @@ https://alidocs.dingtalk.com/i/spaces/xxxxx/overview
 ### 文件结构
 
 ```
-.claude/skills/dingtalk-doc-push/
+.claude/skills/dingtalk-docs-skill/
 ├── SKILL.md                  # Skill 入口（触发器 + 指令）
 ├── README.md                 # 本文件
 ├── evals/
@@ -102,16 +122,15 @@ https://alidocs.dingtalk.com/i/spaces/xxxxx/overview
 
 ## English
 
-**dingtalk-doc-push** is a [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill for pushing, syncing, and managing documents on [DingTalk Docs](https://alidocs.dingtalk.com) via the official DingTalk Document MCP Server.
+**dingtalk-docs-skill** is a cross-platform Agent Skill for reading, pushing, syncing, exporting, and managing documents on [DingTalk Docs](https://alidocs.dingtalk.com) via the official DingTalk Document MCP Server.
 
 ### Features
 
-- **Push**: Create a DingTalk document from local Markdown files
-- **Update**: Overwrite or append content to existing documents
-- **Pull**: Download cloud document content to a local Markdown file
-- **List**: Browse documents in a knowledge base or folder
-- **Search**: Find documents by keyword
-- **Manage**: Create folders, rename, move, copy, or delete documents
+| Category | Capabilities |
+|----------|-------------|
+| **Read** | Pull cloud document content as markdown, list knowledge base / folder nodes, search by keyword, get document metadata, download DingTalk Drive files and attachments |
+| **Write** | Push local markdown to DingTalk, overwrite / append document content, block-level precise editing (paragraphs, headings, tables, etc.), upload local files (PDF, images, Word, etc.) |
+| **Manage** | Create folders, rename / move / copy / delete documents and folders, export documents to PDF or Word, manage node member permissions |
 
 All operations go through [DingTalk's official MCP Server](https://aihub.dingtalk.com/#/detail?mcpId=9629&detailType=marketMcpDetail) — no local scripts or API keys in code.
 
@@ -119,7 +138,28 @@ All operations go through [DingTalk's official MCP Server](https://aihub.dingtal
 
 **1. Install the Skill**
 
-Copy the `.claude/skills/dingtalk-doc-push` directory into your project's `.claude/skills/` folder (or user-level `~/.claude/skills/`).
+**User-level install** (recommended — available across all projects):
+
+macOS / Linux:
+```bash
+git clone https://github.com/CPsean/dingtalk-docs-skill \
+  ~/.claude/skills/dingtalk-docs-skill
+```
+
+Windows (PowerShell):
+```powershell
+git clone https://github.com/CPsean/dingtalk-docs-skill `
+  "$env:USERPROFILE\.claude\skills\dingtalk-doc"
+```
+
+**Project-level install** (current project only):
+
+```bash
+git clone https://github.com/CPsean/dingtalk-docs-skill \
+  .claude/skills/dingtalk-docs-skill
+```
+
+Restart Claude Code after installing to load the skill.
 
 **2. Enable the DingTalk Document MCP Server**
 
@@ -184,7 +224,7 @@ User request
 ### File Structure
 
 ```
-.claude/skills/dingtalk-doc-push/
+.claude/skills/dingtalk-docs-skill/
 ├── SKILL.md                  # Skill entry point (trigger + instructions)
 ├── README.md                 # This file
 ├── evals/
