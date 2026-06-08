@@ -210,6 +210,7 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 ## 关键约束
 
 - `update_document` 和 `create_document` 仅支持 **adoc（文字类型）** 文档，不支持表格、演示、脑图等
+- `create_document` 和 `update_document` 的 `markdown` 参数上限均为 **10,000 字符**；超出会报 `invalidRequest.inputArgs.invalid` 错误。推送前应先估算内容字符数，超过 **9,500 字符**（留余量）时走大文档推送策略（见下文）
 - `delete_document` 是移入回收站，不是永久删除，30 天内可从回收站恢复
 - `list_nodes` 只返回直接子节点，不递归。需要深层列表时需要多次调用
 - **导出为异步操作**：`submit_export_job` 返回 jobId 后需轮询 `query_export_job` 直到状态完成，再将下载链接告知用户；轮询间隔建议 1-2 秒
@@ -232,6 +233,35 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 3. **纯 ASCII 内容可直接处理**：如果上传的文件内容全是 ASCII（英文、代码等），可以直接处理，在同一轮回复中完成：读取内容 -> 确认摘要 -> （用户确认后）调用 `create_document`
 4. **文档命名**：默认使用上传文件名（去掉扩展名）作为钉钉文档标题。如果用户要求修改名字，按用户指定的名字创建
 5. **仅支持 markdown / 纯文本**：对话上传的二进制文件（PDF、图片、Word 等）当前不支持直接推送，需要用户提供本地磁盘路径后走文件上传三步流程
+
+## 大文档推送策略
+
+当需要将本地 markdown 文件推送为钉钉在线文档（adoc）时，**推送前先估算内容字符数**。超过 **9,500 字符** 时，单次 `create_document` 必然失败，需主动告知用户并让其选择方案：
+
+### 方案 A — 分段推送（生成可在线编辑的 adoc）
+
+1. 按 `## ` / `### ` 标题边界将内容切分为若干段，每段 ≤ 9,500 字符，避免在表格中间切断
+2. 用 `create_document` 写入第 1 段（含标题）
+3. 依次用 `update_document`（`append` 模式）追加后续各段，每段单独一次调用
+4. 全部追加完成后报告文档链接
+
+**适合场景**：用户需要在钉钉在线编辑、评论、协作，或希望文档格式被渲染
+
+### 方案 B — 上传原始 .md 文件（存入钉盘）
+
+走三步文件上传流程：`get_file_upload_info` → HTTP PUT → `commit_uploaded_file`
+
+**适合场景**：只需存档或分享下载，不需要在线编辑；操作更简单，文件完整保留原格式
+
+### 推荐选择
+
+向用户说明两个方案后，推荐如下：
+
+> 如果你需要在钉钉里直接编辑或与同事协作，推荐方案 A（分段推送）；如果只是存档或分享，推荐方案 B（上传文件）。
+
+收到用户选择后再执行，不要擅自决定。
+
+---
 
 ## 资源导航
 
