@@ -1,6 +1,6 @@
 ---
 name: dingtalk-docs-skill
-description: 当用户想要操作钉钉文档时使用本 Skill。支持：推送本地 markdown 到钉钉知识库、拉取云端文档到本地、覆盖/追加更新文档内容、块级精确编辑、搜索与列出知识库文档、下载文件与附件、导出文档为 PDF/Word、管理节点权限、创建/重命名/移动/复制/删除文档与文件夹、初始化钉钉文档 MCP 配置。当用户想操作飞书、语雀、Notion 等其他平台、只修改本地文件、管理钉钉 IM 消息或群组时，不要使用本 Skill。
+description: 当用户想要操作钉钉文档或向钉钉知识库推送本地文件时使用本 Skill。支持：将 Markdown/纯文本推送为可编辑钉钉文档、原格式上传 HTML/图片/PDF/Office 等文件、拉取云端文档到本地、覆盖/追加更新文档内容、块级精确编辑、搜索与列出知识库文档、下载文件与附件、导出文档为 PDF/Word、管理节点权限、创建/重命名/移动/复制/删除文档与文件夹、初始化钉钉文档 MCP 配置。当用户想操作飞书、语雀、Notion 等其他平台、只修改本地文件、管理钉钉 IM 消息或群组时，不要使用本 Skill。
 license: MIT
 compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Compatible with any MCP-capable agent (Claude Code, Cursor, VS Code, Roo Code, Gemini CLI, Codex, etc.). Auto-detects Claude Code; falls back to writing config files or manual setup for other agents.
 ---
@@ -23,7 +23,7 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 - 下载钉盘文件或文档内嵌附件
 
 **写**
-- 将本地 markdown 推送为钉钉文档（adoc 类型）
+- 按内容类型将本地内容推送到知识库：创建可编辑的 adoc 文档，或保留原格式上传文件
 - 覆盖或追加内容到已有文档
 - 按块精确编辑（插入/更新/删除段落、标题、表格等）
 - 上传本地文件（PDF、图片、Word 等）到知识库
@@ -143,9 +143,10 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 1. 确认 MCP 工具可用（若不可用，进入初始化流程）
 2. 理解用户意图，映射到对应 MCP 工具（见工具映射表）
 3. 如需要 dentryUuid/nodeId 但用户未提供：优先读取 `references/dingtalk.config`（或环境变量 `$DINGTALK_DEFAULT_WORKSPACE_URL`）获取默认知识库 URL，调用 `get_document_info` 解析出 nodeId；否则调用 `search_documents` 或 `list_nodes` 定位目标，让用户确认后再操作
-4. **执行前确认**（只读操作除外，见下方说明）：向用户展示操作摘要，收到明确同意后再调用 MCP 工具
-5. 执行操作
-6. 报告结果：操作类型、文档标题、文档链接（如有）
+4. 对推送请求确定推送方案；若格式、是否保留原格式、是否需要在线编辑或用户意图不足以唯一确定方案，先让用户选择方案，**不得开始创建或上传**
+5. **执行前确认**（只读操作除外，见下方说明）：方案确定后，向用户展示操作摘要，收到明确同意后再调用 MCP 工具
+6. 执行操作
+7. 报告结果：操作类型、文档标题、文档链接（如有）
 
 ### 执行前确认规则
 
@@ -176,8 +177,9 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 
 | 用户意图 | MCP 工具 |
 |---------|---------|
-| 推送/创建文档（含 markdown 内容） | `create_document` |
-| 拉取云端文档内容到本地 | `get_document_content` |
+| 推送 Markdown / 纯文本为可编辑钉钉文档 | `create_document` |
+| 推送 HTML、图片或其他本地文件并保留原格式 | `get_file_upload_info` → HTTP PUT → `commit_uploaded_file` |
+| 拉取 adoc 文字文档内容到本地 | `get_document_content` |
 | 覆盖或追加文档内容 | `update_document` |
 | 精确块级编辑（段落/标题/表格等） | `list_document_blocks` → `insert/update/delete_document_block` |
 | 列出知识库/文件夹下的文档 | `list_nodes` |
@@ -198,6 +200,10 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 
 - **MCP 工具不可用**：停止，进入初始化流程，不要猜测或尝试其他方式调用
 - **未提供目标文档**：先用 `search_documents` 或 `list_nodes` 找到目标，让用户确认后再操作
+- **读取非 adoc 节点**：先调用 `get_document_info` 或使用列表/搜索结果中的类型字段确认 `contentType`。只有 `adoc` 可调用 `get_document_content`；不要对其他类型反复重试该工具
+- **读取 axls（钉钉表格）**：`get_document_content` 不支持 `axls`。仅当当前会话实际提供可用的表格 MCP 工具时，才使用该工具读取所需单元格或区域；不得根据报错臆造或调用未安装的工具。若表格工具不可用，明确说明当前无法读取该表格，并请用户直接粘贴需要处理的表格内容，或提供导出的文件/目标数据
+- **读取 dlink（快捷方式）**：`dlink` 不是正文载体，不能直接调用 `get_document_content`。从其元信息中取得指向目标的原始 nodeId，使用原始 nodeId 继续查询类型和读取；搜索或列出结果同时含有原节点与指向该节点的 `dlink` 时，按原始 nodeId 去重，优先保留原节点。无法解析原始 nodeId 时，向用户说明该快捷方式无法直接读取，不要重试正文读取
+- **读取其他非 adoc 节点**：演示、脑图、白板、文件等非 `adoc` 节点不适用 `get_document_content`。仅在当前会话存在匹配的专用读取工具时使用；否则说明限制，并请用户粘贴所需内容、提供导出文件，或改为下载/导出后处理
 - **update_document 报错**：确认目标是否为 adoc（文字类型）文档，非 adoc 文档不支持此操作
 - **delete_document 前**：确认摘要中必须注明"将移入回收站，30 天内可恢复"，收到确认后再执行
 - **API 报错（权限/鉴权类）**：当 API 返回权限不足、无权限、鉴权失败、Forbidden、Unauthorized 等错误时，除了展示原文错误信息外，提示用户可能尚未开通所在组织的钉钉开发者权限，引导用户参考以下链接完成开通：
@@ -219,7 +225,35 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 
 ## 对话中上传文件的处理
 
-用户可能在对话中直接上传 markdown 文件并要求推送到钉钉。
+用户可能在对话中直接上传文件并要求推送到钉钉。先识别文件扩展名、MIME 类型或实际内容，再按下列规则选择推送方案；**保留用户提供的原始格式，不要为了使用 `create_document` 擅自转码或转换格式**。
+
+### 推送方案选择
+
+| 输入内容 | 默认推送方案 | 原因与限制 |
+|---|---|---|
+| Markdown / 纯文本（`.md`、`.markdown`、`.txt`）或用户直接提供的文字内容 | `create_document` 创建 `adoc` | 适合在线编辑、评论和协作；受单次 10,000 字符限制 |
+| HTML（`.html`、`.htm`） | 文件上传三步流程 | 以 HTML 文件原样存入知识库，不转换为 Markdown / adoc |
+| 图片（如 `.png`、`.jpg`、`.jpeg`、`.gif`、`.webp`、`.svg`） | 文件上传三步流程 | 以图片文件原样上传 |
+| PDF、Office 文件、表格、压缩包、音视频及其他二进制文件 | 文件上传三步流程 | 以原始文件上传；不能使用 `create_document` 或 `update_document` 写入 |
+| 无扩展名或类型无法判断的文件 | 先询问用户希望“在线可编辑文档”还是“原文件上传” | 不擅自猜测或转换；只有用户确认文本内容且希望在线编辑时才创建 adoc |
+
+用户明确要求改变默认方案时，以用户要求为准。例如，用户要求将 HTML 转为可编辑文字文档时，先说明转换后可能丢失样式或交互，再经确认后转换为 Markdown / 纯文本并使用 `create_document`。
+
+### MD 优先与方案确认
+
+- **原始 Markdown 文件优先创建 adoc**：对于 `.md` / `.markdown` 文件，用户未指定其他目标时，先估算 Markdown 正文的**字符数**。不以文件字节大小或行数代替此判断；估算不超过 9,500 字符时，默认方案为创建可编辑的 adoc
+- **超出 adoc 单次上限时必须选择**：Markdown 正文超过 9,500 字符时，不得自动拆分或直接上传。先向用户说明 adoc 单次 `create_document` / `update_document` 上限为 10,000 字符，并提供两个选项：方案 A 为分段创建并追加 adoc，方案 B 为原样上传 `.md` 文件。推荐需要在线编辑、评论或协作时选择方案 A；只需存档或下载分享时选择方案 B。收到用户选择后才进入写入确认
+- **推送方案不明确时必须先确认**：只要文件类型、是否保留原格式、是否转换为可编辑 adoc，或用户期望的交付形态存在歧义，就先展示可选方案并等待用户明确选择。此时可进行只读的文件类型或元信息识别，但不得调用 `create_document`、`get_file_upload_info`、HTTP PUT 或 `commit_uploaded_file`
+- **方案确认不替代写入确认**：用户选定方案后，仍须按“执行前确认规则”展示目标位置、文件/文档名称和操作摘要；收到明确同意后才执行云端写入
+
+### 文件上传流程
+
+对于应原样保留的文件，确认目标位置与文件名后，执行：
+
+1. 调用 `get_file_upload_info`，传入原始 `fileName`、实际 `fileSize` 和目标 `folderId` 或 `workspaceId`
+2. 使用返回的凭证对文件原始字节执行 HTTP PUT；不得将图片、HTML 或其他文件内容改写为 Markdown
+3. 调用 `commit_uploaded_file`，使用返回的 `uploadKey` 提交入库
+4. 返回上传文件的名称、节点标识和访问链接（如返回）
 
 ### 已知限制
 
@@ -228,15 +262,15 @@ compatibility: Requires dingtalk-doc MCP server (StreamableHttp transport). Comp
 
 ### 处理规则
 
-1. **优先使用本地文件路径**：当用户要推送含非 ASCII 内容（中文、日文等）的文件时，请用户提供本地磁盘路径，直接读取文件内容，避免编码问题
+1. **优先使用本地文件路径**：当用户要推送含非 ASCII 内容（中文、日文等）的文本文件，或任何需要原样上传的二进制/HTML 文件时，请用户提供本地磁盘路径，直接读取文件内容或原始字节，避免编码问题
 2. **对话上传的文件先检查编码**：如果用户直接在对话中上传了文件，先检查内容是否出现乱码。如果存在乱码，立即告知用户并请其提供本地文件路径
-3. **纯 ASCII 内容可直接处理**：如果上传的文件内容全是 ASCII（英文、代码等），可以直接处理，在同一轮回复中完成：读取内容 -> 确认摘要 -> （用户确认后）调用 `create_document`
-4. **文档命名**：默认使用上传文件名（去掉扩展名）作为钉钉文档标题。如果用户要求修改名字，按用户指定的名字创建
-5. **仅支持 markdown / 纯文本**：对话上传的二进制文件（PDF、图片、Word 等）当前不支持直接推送，需要用户提供本地磁盘路径后走文件上传三步流程
+3. **文本按类型路由**：可正确读取的 Markdown / 纯文本按上表创建 adoc；HTML 即使能读取文本，也默认按原 HTML 文件上传
+4. **二进制或原格式上传须读取本地文件**：图片、PDF、Office 文件等需要读取原始字节；如果对话附件无法提供可靠的本地文件内容，请用户提供本地磁盘路径后走文件上传三步流程
+5. **命名规则**：创建 adoc 时默认使用文件名去掉扩展名作为文档标题；上传原文件时默认保留原始文件名。用户要求修改名字时，以用户指定的名字为准
 
 ## 大文档推送策略
 
-当需要将本地 markdown 文件推送为钉钉在线文档（adoc）时，**推送前先估算内容字符数**。超过 **9,500 字符** 时，单次 `create_document` 必然失败，需主动告知用户并让其选择方案：
+当原始 Markdown 文件的正文超过 **9,500 字符** 时，单次 `create_document` / `update_document` 会超过 10,000 字符上限。此时先让用户在以下两种方案中选择，**不要自动执行任一方案**：
 
 ### 方案 A — 分段推送（生成可在线编辑的 adoc）
 
